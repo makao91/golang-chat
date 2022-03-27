@@ -1,13 +1,18 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
+	"os"
 	"strings"
+	"time"
 
+	"github.com/go-redis/redis"
 	"github.com/gorilla/websocket"
+	"github.com/joho/godotenv"
 	gubrak "github.com/novalagung/gubrak/v2"
 )
 
@@ -34,7 +39,29 @@ type WebSocketConnection struct {
 	Username string
 }
 
+type Message struct {
+	Name string
+	Body string
+	Time int64
+}
+
+var (
+	rdb *redis.Client
+)
+
 func main() {
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatal("Error loading .env file")
+	}
+	redisURL := os.Getenv("REDIS_URL")
+
+	rdb = redis.NewClient(&redis.Options{
+		Addr:     redisURL,
+		Password: "",
+		DB:       0,
+	})
+
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		content, err := ioutil.ReadFile("index.html")
 		if err != nil {
@@ -84,6 +111,14 @@ func handleIO(currentConn *WebSocketConnection, connections []*WebSocketConnecti
 			log.Println("ERROR", err.Error())
 			continue
 		}
+		m := Message{currentConn.Username, payload.Message, time.Now().Unix()}
+		json_message, err := json.Marshal(m)
+		if err != nil {
+			log.Println("ERROR with json parsing", err.Error())
+			continue
+		}
+
+		rdb.RPush("chat_messages", json_message)
 
 		broadcastMessage(currentConn, MESSAGE_CHAT, payload.Message)
 	}
