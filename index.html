@@ -2,6 +2,9 @@
 <html>
 <head>
     <title>WebSocket</title>
+    <link href="//maxcdn.bootstrapcdn.com/bootstrap/3.3.0/css/bootstrap.min.css" rel="stylesheet" id="bootstrap-css">
+    <script src="//code.jquery.com/jquery-1.11.1.min.js"></script>
+    <script src="//maxcdn.bootstrapcdn.com/bootstrap/3.3.0/js/bootstrap.min.js"></script>
 
     <style type="text/css">
         .form {
@@ -9,9 +12,10 @@
             left: 0;
             bottom: 0;
             right: 0;
+            height: auto;
             background-color: #f9f9f9;
             border-top: 1px solid #78b8ef;
-            padding: 5px 10px;
+            padding: 10px 20px;
         }
         .form .placeholder,
         .form .input-message,
@@ -33,27 +37,27 @@
             background-color: #78b8ef;
             border: 1px solid #5a9ed8;
         }
-        .container {
-            margin-bottom: 50px;
-        }
-        .container p {
-            display: block;
-        }
+        #chatBox {
+            overflow: scroll;
+            height: 800px;
+            }
     </style>
 </head>
 <body>
-    <div class="container"></div>
-
-    <div class="form">
-        <form onsubmit="app.doSendMessage(); return false;">
-            <div class="placeholder">
-                <label>Hello <b class="username"></b>. Say something:</label>
-            </div>
-            <input class="input-message" type="text" placeholder="Enter message">
-            <button type="submit">Send</button>
-        </form>
+    <div class="container" id="container">
+        <div class="row" ></div>
+        <div class="col-12 w-85" id="chatBox">
+          </div>
+        <div class="row form">
+            <form onsubmit="app.doSendMessage(); return false;">
+                <div class="placeholder">
+                    <label>Hello <b class="username"></b>. Say something:</label>
+                </div>
+                <input class="input-message" type="text" placeholder="Enter message">
+                <button type="submit" id="submit">Send</button>
+            </form>
+        </div>
     </div>
-
     <script type="text/javascript">
         var app = {}
         app.ws = undefined
@@ -62,8 +66,13 @@
         app.print = function (message) {
             var el = document.createElement("p")
             el.innerHTML = message
-            app.container.append(el)
-            app.container.scrollTop = app.container.scrollHeight; // Auto scroll to the bottom
+            app.chatBox.append(el)
+
+            var objDiv = document.getElementById("chatBox");
+            objDiv.scrollTop = objDiv.scrollHeight;
+            $("#chatBox").animate({
+                scrollTop: objDiv.scrollHeight
+                }, 0); // Auto scroll to the bottom
         }
 
         app.doSendMessage = function () {
@@ -85,9 +94,11 @@
             }
 
             var name = prompt('Enter your name please:') || "No name"
+            document.querySelector('.input-message').focus()
             document.querySelector('.username').innerText = name
+            app.chatBox= document.querySelector('#chatBox')
 
-            app.container = document.querySelector('.container')
+            app.container= document.querySelector('.container')
 
             app.ws = new WebSocket("ws://localhost:8080/ws?username=" + name)
 
@@ -115,6 +126,11 @@
                 var message = '<b>me</b>: disconnected'
                 app.print(message)
             }
+            var objDiv = document.getElementById("chatBox");
+            objDiv.scrollTop = objDiv.scrollHeight;
+            $("#chatBox").animate({
+                scrollTop: objDiv.scrollHeight
+                }, 0); // Auto scroll to the bottom
         }
 
         window.onload = app.init
