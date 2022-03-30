@@ -63,6 +63,7 @@
             var el = document.createElement("p")
             el.innerHTML = message
             app.container.append(el)
+            app.container.scrollTop = app.container.scrollHeight; // Auto scroll to the bottom
         }
 
         app.doSendMessage = function () {

@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -39,10 +40,10 @@ type WebSocketConnection struct {
 	Username string
 }
 
-type Message struct {
-	Name string
-	Body string
-	Time int64
+type ChatMessage struct {
+	From    string
+	Message string
+	Time    int64
 }
 
 var (
@@ -98,6 +99,10 @@ func handleIO(currentConn *WebSocketConnection, connections []*WebSocketConnecti
 
 	broadcastMessage(currentConn, MESSAGE_NEW_USER, "")
 
+	if rdb.Exists("chat_messages").Val() != 0 {
+		sendPreviousMessages(currentConn.Conn)
+	}
+
 	for {
 		payload := SocketPayload{}
 		err := currentConn.ReadJSON(&payload)
@@ -111,7 +116,7 @@ func handleIO(currentConn *WebSocketConnection, connections []*WebSocketConnecti
 			log.Println("ERROR", err.Error())
 			continue
 		}
-		m := Message{currentConn.Username, payload.Message, time.Now().Unix()}
+		m := ChatMessage{currentConn.Username, payload.Message, time.Now().Unix()}
 		json_message, err := json.Marshal(m)
 		if err != nil {
 			log.Println("ERROR with json parsing", err.Error())
@@ -143,4 +148,30 @@ func broadcastMessage(currentConn *WebSocketConnection, kind, message string) {
 			Message: message,
 		})
 	}
+}
+func sendPreviousMessages(ws *websocket.Conn) {
+	chatMessages, err := rdb.LRange("chat_messages", 0, -1).Result()
+	if err != nil {
+		panic(err)
+	}
+
+	// send previous messages
+	for _, chatMessage := range chatMessages {
+		var msg ChatMessage
+		json.Unmarshal([]byte(chatMessage), &msg)
+		messageClient(ws, msg)
+	}
+}
+func messageClient(client *websocket.Conn, msg ChatMessage) {
+	err := client.WriteJSON(msg)
+	if err != nil && unsafeError(err) {
+		log.Printf("error: %v", err)
+		client.Close()
+		// remove(connections, client)
+	}
+}
+
+// If a message is sent while a client is closing, ignore the error
+func unsafeError(err error) bool {
+	return !websocket.IsCloseError(err, websocket.CloseGoingAway) && err != io.EOF
 }
